@@ -1,74 +1,94 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pandas as pd
-from model import load_model
+import numpy as np
 import os
 
-# Create app FIRST
 app = Flask(__name__)
 CORS(app)
 
-# Load data and model
 df = pd.read_csv("data.csv")
-model = load_model()
 
-# ----------------------
-# Home Route
-# ----------------------
+# ---------- METRICS ----------
+def compute_metrics(signal, latency, speed):
+
+    signal_norm = signal + 100
+    speed_norm = speed * 2
+
+    nqs = (0.4 * signal_norm) + (0.3 * speed_norm) - (0.3 * latency)
+    nsi = 100 - np.std([signal, latency, speed])
+    efficiency = speed / (latency + 1)
+    packet_loss = latency / 200
+
+    return round(nqs,2), round(nsi,2), round(efficiency,2), round(packet_loss,2)
+
+# ---------- ROUTES ----------
 @app.route('/')
 def home():
-    return "API running"
+    return "Network Intelligence API Running"
 
-# ----------------------
-# Get Data
-# ----------------------
 @app.route('/data')
-def get_data():
-    return df.to_json(orient='records')
+def data():
+    return df.to_json(orient="records")
 
-# ----------------------
-# Predict NQS
-# ----------------------
 @app.route('/predict', methods=['POST'])
 def predict():
-    data = request.json
+    d = request.json
 
-    input_data = [[
-        data['signal_strength'],
-        data['latency'],
-        data['speed']
-    ]]
-
-    prediction = model.predict(input_data)[0]
+    nqs, nsi, eff, loss = compute_metrics(
+        d['signal_strength'], d['latency'], d['speed']
+    )
 
     return jsonify({
-        "predicted_NQS": round(prediction, 2)
+        "NQS": nqs,
+        "NSI": nsi,
+        "Efficiency": eff,
+        "PacketLoss": loss
     })
 
-# ----------------------
-# Recommendation
-# ----------------------
 @app.route('/recommend', methods=['POST'])
 def recommend():
-    data = request.json
-    suggestions = []
+    d = request.json
+    rec = []
 
-    if data['signal_strength'] < -85:
-        suggestions.append("Move to open area")
+    if d['signal_strength'] < -85:
+        rec.append("Weak signal — move to open area")
 
-    if data['latency'] > 100:
-        suggestions.append("Avoid peak hours")
+    if d['latency'] > 100:
+        rec.append("High latency — avoid peak hours")
 
-    if data['speed'] < 10:
-        suggestions.append("Switch network")
+    if d['speed'] < 10:
+        rec.append("Low speed — switch network")
 
-    return jsonify({
-        "recommendations": suggestions
-    })
+    return jsonify({"recommendations": rec})
 
-# ----------------------
-# Run App (IMPORTANT)
-# ----------------------
+@app.route('/insights', methods=['POST'])
+def insights():
+    d = request.json
+    insights = []
+
+    if d['latency'] > 80:
+        insights.append("Network congestion detected")
+
+    if d['signal_strength'] < -80:
+        insights.append("Coverage issue detected")
+
+    if d['speed'] < 15:
+        insights.append("Bandwidth bottleneck observed")
+
+    return jsonify({"insights": insights})
+
+@app.route('/anomaly', methods=['POST'])
+def anomaly():
+    d = request.json
+    prev = d.get("prev_nqs", 50)
+    curr = d.get("current_nqs", 50)
+
+    if abs(curr - prev) > 20:
+        return jsonify({"alert": "Sudden network drop detected"})
+    return jsonify({"alert": "Stable network"})
+
+# ---------- RUN ----------
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
