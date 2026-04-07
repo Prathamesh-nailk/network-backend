@@ -1,26 +1,34 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import pandas as pd
 from model import load_model
 import os
 
-port = int(os.environ.get("PORT", 5000))
-app.run(host="0.0.0.0", port=port)
+# Create app FIRST
 app = Flask(__name__)
+CORS(app)
 
+# Load data and model
 df = pd.read_csv("data.csv")
 model = load_model()
 
-# Home
+# ----------------------
+# Home Route
+# ----------------------
 @app.route('/')
 def home():
     return "API running"
 
-# Get data
+# ----------------------
+# Get Data
+# ----------------------
 @app.route('/data')
 def get_data():
     return df.to_json(orient='records')
 
+# ----------------------
 # Predict NQS
+# ----------------------
 @app.route('/predict', methods=['POST'])
 def predict():
     data = request.json
@@ -37,7 +45,9 @@ def predict():
         "predicted_NQS": round(prediction, 2)
     })
 
+# ----------------------
 # Recommendation
+# ----------------------
 @app.route('/recommend', methods=['POST'])
 def recommend():
     data = request.json
@@ -56,5 +66,9 @@ def recommend():
         "recommendations": suggestions
     })
 
+# ----------------------
+# Run App (IMPORTANT)
+# ----------------------
 if __name__ == '__main__':
-    
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
