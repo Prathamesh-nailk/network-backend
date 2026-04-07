@@ -1,7 +1,10 @@
 from flask import Flask, request, jsonify
 import pandas as pd
 from model import load_model
+import os
 
+port = int(os.environ.get("PORT", 5000))
+app.run(host="0.0.0.0", port=port)
 app = Flask(__name__)
 
 df = pd.read_csv("data.csv")
@@ -54,4 +57,4 @@ def recommend():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    
